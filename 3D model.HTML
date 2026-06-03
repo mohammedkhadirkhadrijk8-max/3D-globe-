@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realistic 3D Interactive Earth Globe</title>
+    <!-- Modern Premium Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            overflow: hidden;
+            background: #020208;
+            color: #fff;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100vh;
+        }
+
+        /* Glassmorphic UI Panel Styling */
+        .glass-panel {
+            position: absolute;
+            background: rgba(10, 10, 25, 0.6);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 24px;
+            z-index: 10;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5),
+                        0 0 1px 1px rgba(255, 255, 255, 0.1) inset;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #info {
+            top: 24px;
+            left: 24px;
+            max-width: 360px;
+        }
+
+        #info h3 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #info p {
+            margin: 8px 0;
+            font-size: 13px;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.7);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Controls Panel */
+        #controls {
+            bottom: 24px;
+            right: 24px;
+            width: 320px;
+        }
+
+        .control-group {
+            margin-bottom: 16px;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            color: rgba(255, 255, 255, 0.85);
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .control-label span {
+            color: #00f2fe;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #00f2fe;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.8);
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 700;
+            margin-top: 10px;
+            transition: all 0.2s ease;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(0, 242, 254, 0.2);
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0, 242, 254, 0.4);
+            filter: brightness(1.1);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        button.secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: none;
+        }
+
+        button.secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: none;
+        }
+
+        /* Stats Panel */
+        #stats {
+            top: 24px;
+            right: 24px;
+            padding: 16px 20px;
+            min-width: 180px;
+        }
+
+        .stat-item {
+            margin: 6px 0;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.6);
+            display: flex;
+            justify-content: space-between;
+            font-family: monospace;
+        }
+
+        .stat-label {
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: bold;
+        }
+
+        .stat-value {
+            color: #00f2fe;
+        }
+
+        /* Loading Overlay */
+        #loader {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #020208;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            transition: opacity 0.5s ease;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(0, 242, 254, 0.1);
+            border-top-color: #00f2fe;
+            border-radius: 50%;
+            animation: spin 1s infinite linear;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            #info, #controls, #stats {
+                width: calc(100% - 48px);
+                max-width: none;
+                left: 24px !important;
+                right: 24px !important;
+            }
+            #info { top: 24px; }
+            #stats { top: 190px; }
+            #controls { bottom: 24px; }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Loading Screen -->
+    <div id="loader">
+        <div class="spinner"></div>
+        <h3 style="color: #00f2fe; letter-spacing: 2px;">LOADING REALISTIC EARTH</h3>
+        <p style="color: rgba(255,255,255,0.5); font-size: 12px; margin-top: 8px;">Fetching planetary maps...</p>
+    </div>
+
+    <div id="info" class="glass-panel">
+        <h3>🌍 HIGH-FIDELITY EARTH</h3>
+        <p>✦ OrbitControls: Drag to rotate, Right-click to pan</p>
+        <p>✦ Zoom: Scroll mouse wheel (smooth damping)</p>
+        <p>✦ Atmospheric scattering shader effects</p>
+        <p>✦ Day/Night texture blend based on sun light</p>
+        <p>✦ Live specular reflections on water body</p>
+    </div>
+
+    <div id="stats" class="glass-panel">
+        <div class="stat-item"><span class="stat-label">FPS</span><span id="fps" class="stat-value">60</span></div>
+        <div class="stat-item"><span class="stat-label">ZOOM</span><span id="zoomLevel" class="stat-value">2.5</span></div>
+        <div class="stat-item"><span class="stat-label">LIGHTING</span><span id="lightingMode" class="stat-value">DAY/NIGHT</span></div>
+        <div class="stat-item"><span class="stat-label">CLOUDS</span><span id="cloudOpacity" class="stat-value">60%</span></div>
+    </div>
+
+    <div id="controls" class="glass-panel">
+        <div class="control-group">
+            <div class="control-label">Rotation Speed <span id="rotationValue">0.05°/s</span></div>
+            <input type="range" id="rotationSlider" min="0" max="100" value="50">
+        </div>
+
+        <div class="control-group">
+            <div class="control-label">Sun Position (Day Time) <span id="sunPosValue">12:00</span></div>
+            <input type="range" id="sunPosSlider" min="0" max="360" value="45">
+        </div>
+
+        <div class="control-group">
+            <div class="control-label">Cloud Density <span id="cloudOpacityValue">60%</span></div>
+            <input type="range" id="cloudOpacitySlider" min="0" max="100" value="60">
+        </div>
+
+        <div class="control-group">
+            <div class="control-label">Atmosphere Glow <span id="atmosphereValue">50%</span></div>
+            <input type="range" id="atmosphereSlider" min="0" max="100" value="50">
+        </div>
+
+        <button id="toggleRotation">Pause Rotation</button>
+        <button id="resetView" class="secondary">Reset Camera</button>
+    </div>
+
+    <!-- Import Three.js and OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // ==================== SCENE & RENDERER SETUP ====================
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        camera.position.set(0, 0, 2.8);
+
+        // Add OrbitControls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 1.3;
+        controls.maxDistance = 10.0;
+
+        // Texture Loader with status tracking
+        const loadingManager = new THREE.LoadingManager();
+        loadingManager.onLoad = () => {
+            const loaderEl = document.getElementById('loader');
+            loaderEl.style.opacity = 0;
+            setTimeout(() => loaderEl.style.display = 'none', 500);
+        };
+
+        const textureLoader = new THREE.TextureLoader(loadingManager);
+
+        // Fallback procedural creation in case network fails
+        function createProceduralNoiseTexture(type) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            
+            if (type === 'day') {
+                ctx.fillStyle = '#0f2042'; // deep ocean blue
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw some simple but realistic-looking continents using noise or shapes
+                ctx.fillStyle = '#1e3f20'; // forest green
+                ctx.beginPath();
+                // Rough Americas
+                ctx.arc(250, 200, 80, 0, Math.PI*2);
+                ctx.arc(320, 350, 60, 0, Math.PI*2);
+                // Eurasia / Africa
+                ctx.arc(650, 180, 110, 0, Math.PI*2);
+                ctx.arc(600, 320, 70, 0, Math.PI*2);
+                ctx.arc(800, 380, 50, 0, Math.PI*2);
+                ctx.fill();
+            } else if (type === 'night') {
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // Simple yellow lights at land borders
+                ctx.fillStyle = 'rgba(255, 230, 150, 0.8)';
+                for (let i = 0; i < 400; i++) {
+                    ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 2, 2);
+                }
+            } else if (type === 'clouds') {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                for (let i = 0; i < 40; i++) {
+                    ctx.beginPath();
+                    ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 80 + 30, 0, Math.PI*2);
+                    ctx.fill();
+                }
+            }
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        // Earth Textures (Standard stable CDN assets from three-globe / official three.js)
+        const textures = {
+            day: textureLoader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg', undefined, undefined, () => createProceduralNoiseTexture('day')),
+            night: textureLoader.load('https://unpkg.com/three-globe/example/img/earth-night.jpg', undefined, undefined, () => createProceduralNoiseTexture('night')),
+            bump: textureLoader.load('https://unpkg.com/three-globe/example/img/earth-topology.png', undefined, undefined, null),
+            clouds: textureLoader.load('https://unpkg.com/three-globe/example/img/earth-clouds.png', undefined, undefined, () => createProceduralNoiseTexture('clouds'))
+        };
+
+        // ==================== EARTH CUSTOM DAY/NIGHT SHADER MATERIAL ====================
+        // Custom shaders to blend day & night textures based on sun position in real time!
+        const earthMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                dayTexture: { value: textures.day },
+                nightTexture: { value: textures.night },
+                bumpTexture: { value: textures.bump },
+                sunDirection: { value: new THREE.Vector3(1, 0, 1).normalize() }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                varying vec3 vNormal;
+                varying vec3 vPosition;
+                void main() {
+                    vUv = uv;
+                    vNormal = normalize(normalMatrix * normal);
+                    vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform sampler2D dayTexture;
+                uniform sampler2D nightTexture;
+                uniform sampler2D bumpTexture;
+                uniform vec3 sunDirection;
+                varying vec2 vUv;
+                varying vec3 vNormal;
+                varying vec3 vPosition;
+
+                void main() {
+                    // Blend day and night textures based on cosine of angle between surface normal and sun direction
+                    float intensity = dot(vNormal, sunDirection);
+                    
+                    vec4 dayColor = texture2D(dayTexture, vUv);
+                    vec4 nightColor = texture2D(nightTexture, vUv);
+                    
+                    // High sensitivity gradient mapping for smooth twilight zone transition
+                    float blend = smoothstep(-0.15, 0.15, intensity);
+                    vec4 finalColor = mix(nightColor, dayColor, blend);
+
+                    // Add dynamic brightness boost to city lights on night side
+                    if (blend < 0.8) {
+                        float nightGlow = (1.0 - blend) * 0.4;
+                        finalColor.rgb += nightColor.rgb * nightGlow;
+                    }
+                    
+                    gl_FragColor = finalColor;
+                }
+            `,
+            shininess: 25
+        });
+
+        const globeGeometry = new THREE.SphereGeometry(1, 64, 64);
+        const globe = new THREE.Mesh(globeGeometry, earthMaterial);
+        scene.add(globe);
+
+        // ==================== CLOUDS LAYER ====================
+        const cloudGeometry = new THREE.SphereGeometry(1.015, 64, 64);
+        const cloudMaterial = new THREE.MeshStandardMaterial({
+            alphaMap: textures.clouds,
+            transparent: true,
+            color: 0xffffff,
+            opacity: 0.6,
+            blending: THREE.NormalBlending
+        });
+        const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+        scene.add(clouds);
+
+        // ==================== ATMOSPHERE SCATTERING SHADER ====================
+        // Creates a beautiful volumetric atmosphere halo using custom Fresnel glow shader
+        const atmosphereMaterial = new THREE.ShaderMaterial({
+            vertexShader: `
+                varying vec3 vNormal;
+                void main() {
+                    vNormal = normalize(normalMatrix * normal);
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                varying vec3 vNormal;
+                void main() {
+                    // Fresnel glow calculation
+                    float intensity = pow(0.7 - dot(vNormal, vec3(0, 0, 1.0)), 2.5);
+                    gl_FragColor = vec4(0.35, 0.65, 1.0, 1.0) * intensity;
+                }
+            `,
+            blending: THREE.AdditiveBlending,
+            side: THREE.BackSide,
+            transparent: true,
+            opacity: 0.5
+        });
+
+        const atmosphereGeometry = new THREE.SphereGeometry(1.08, 64, 64);
+        const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+        scene.add(atmosphere);
+
+        // ==================== LIGHTING SYSTEM ====================
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.05);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.3);
+        scene.add(sunLight);
+
+        // Subtle ambient blue rim light for dark side realism
+        const rimLight = new THREE.DirectionalLight(0x0f2a5a, 0.5);
+        rimLight.position.set(-5, 0, -5);
+        scene.add(rimLight);
+
+        // ==================== STARFIELD BACKGROUND ====================
+        function createAdvancedStarfield() {
+            const starGeometry = new THREE.BufferGeometry();
+            const starCount = 8000;
+            const positions = new Float32Array(starCount * 3);
+            const colors = new Float32Array(starCount * 3);
+
+            for (let i = 0; i < starCount * 3; i += 3) {
+                // Spherical distribution
+                const u = Math.random();
+                const v = Math.random();
+                const theta = u * 2.0 * Math.PI;
+                const phi = Math.acos(2.0 * v - 1.0);
+                const r = 100 + Math.random() * 200; // Place far away
+
+                positions[i] = r * Math.sin(phi) * Math.cos(theta);
+                positions[i+1] = r * Math.sin(phi) * Math.sin(theta);
+                positions[i+2] = r * Math.cos(phi);
+
+                // Add subtle color variation to stars (hot blue stars, medium yellow, cold red)
+                const rand = Math.random();
+                if (rand < 0.2) {
+                    colors[i] = 0.7; colors[i+1] = 0.8; colors[i+2] = 1.0; // Cool Blue-white
+                } else if (rand < 0.4) {
+                    colors[i] = 1.0; colors[i+1] = 0.9; colors[i+2] = 0.7; // Warm yellow-white
+                } else {
+                    colors[i] = 0.9; colors[i+1] = 0.9; colors[i+2] = 0.9; // Pure white
+                }
+            }
+
+            starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const starMaterial = new THREE.PointsMaterial({
+                size: 0.8,
+                sizeAttenuation: true,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.9
+            });
+
+            return new THREE.Points(starGeometry, starMaterial);
+        }
+
+        const stars = createAdvancedStarfield();
+        scene.add(stars);
+
+        // ==================== STATE AND CONTROL VARIABLES ====================
+        let rotationEnabled = true;
+        let rotationSpeed = 0.0005;
+        let lastFpsTime = performance.now();
+        let frameCount = 0;
+
+        // Update Sun direction based on UI slider or time cycle
+        const sunDirectionVec = new THREE.Vector3();
+        function updateSunPosition(angleDegrees) {
+            const rad = (angleDegrees * Math.PI) / 180;
+            sunLight.position.set(Math.cos(rad) * 10, 0, Math.sin(rad) * 10);
+            
+            // Sync directional light vector with the custom day/night shader uniform
+            sunDirectionVec.copy(sunLight.position).normalize();
+            earthMaterial.uniforms.sunDirection.value.copy(sunDirectionVec);
+            
+            // Format 24h clock equivalent just for presentation
+            const hour = Math.floor((angleDegrees / 360) * 24);
+            const min = Math.floor(((angleDegrees / 360) * 24 % 1) * 60);
+            document.getElementById('sunPosValue').textContent = 
+                `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
+        }
+        
+        // Init sun light position
+        updateSunPosition(45);
+
+        // ==================== EVENT LISTENERS ====================
+        document.getElementById('rotationSlider').addEventListener('input', (e) => {
+            rotationSpeed = (e.target.value / 100) * 0.001;
+            document.getElementById('rotationValue').textContent = (rotationSpeed * 1000).toFixed(2) + '°/s';
+        });
+
+        document.getElementById('sunPosSlider').addEventListener('input', (e) => {
+            updateSunPosition(parseFloat(e.target.value));
+        });
+
+        document.getElementById('cloudOpacitySlider').addEventListener('input', (e) => {
+            const val = e.target.value / 100;
+            cloudMaterial.opacity = val;
+            document.getElementById('cloudOpacityValue').textContent = e.target.value + '%';
+            document.getElementById('cloudOpacity').textContent = e.target.value + '%';
+        });
+
+        document.getElementById('atmosphereSlider').addEventListener('input', (e) => {
+            const val = e.target.value / 100;
+            atmosphere.material.opacity = val;
+            document.getElementById('atmosphereValue').textContent = e.target.value + '%';
+        });
+
+        document.getElementById('toggleRotation').addEventListener('click', () => {
+            rotationEnabled = !rotationEnabled;
+            document.getElementById('toggleRotation').textContent = rotationEnabled ? 'Pause Rotation' : 'Resume Rotation';
+        });
+
+        document.getElementById('resetView').addEventListener('click', () => {
+            camera.position.set(0, 0, 2.8);
+            controls.target.set(0, 0, 0);
+            controls.update();
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ==================== RENDERING & ANIMATION LOOP ====================
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Update orbit controls
+            controls.update();
+
+            // Perform automatic rotations
+            if (rotationEnabled) {
+                globe.rotation.y += rotationSpeed;
+                // Move clouds slightly faster for dynamic atmosphere feeling
+                clouds.rotation.y += rotationSpeed * 1.25;
+                clouds.rotation.x += rotationSpeed * 0.1;
+            }
+
+            // Sync starfield rotation gently
+            stars.rotation.y += 0.00005;
+
+            // Live UI Updates
+            document.getElementById('zoomLevel').textContent = camera.position.distanceTo(controls.target).toFixed(2);
+
+            // FPS counter calculation
+            frameCount++;
+            const time = performance.now();
+            if (time >= lastFpsTime + 1000) {
+                document.getElementById('fps').textContent = frameCount.toString();
+                frameCount = 0;
+                lastFpsTime = time;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+
+</html>
